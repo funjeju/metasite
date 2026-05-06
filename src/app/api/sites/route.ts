@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       name, siteId, topic, language, description,
+      keywords, metaTitle,
       hostingType, domain, vercelProjectId,
       tistoryBlogName, tistoryBlogUrl,
       bloggerBlogId, bloggerBlogUrl,
@@ -80,7 +81,8 @@ export async function POST(req: NextRequest) {
       })),
       seoConfig: {
         siteDescription: description ?? "",
-        siteKeywords: [],
+        siteKeywords: Array.isArray(keywords) ? keywords : [],
+        metaTitle: metaTitle ?? "",
         ogImageUrl: "",
         canonicalDomain,
         searchConsoleVerified: false,

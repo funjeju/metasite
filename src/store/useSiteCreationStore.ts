@@ -10,6 +10,8 @@ export interface SiteCreationData {
   topic: string;
   language: string;
   description: string;
+  keywords: string[];
+  metaTitle: string;
 
   // Step 2: Hosting
   hostingType: "nextjs" | "tistory" | "blogger" | "";
@@ -48,6 +50,8 @@ const DEFAULT_DATA: SiteCreationData = {
   topic: "",
   language: "ko",
   description: "",
+  keywords: [],
+  metaTitle: "",
   hostingType: "",
   domain: "",
   vercelProjectId: "",
