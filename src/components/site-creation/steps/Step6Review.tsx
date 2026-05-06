@@ -6,7 +6,7 @@ import { useSiteCreationStore } from "@/store/useSiteCreationStore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle, Zap } from "lucide-react";
+import { Loader2, CheckCircle, Zap, AlertCircle } from "lucide-react";
 
 const PERSONA_LABEL: Record<string, string> = {
   friendly_expert: "친근한 전문가",
@@ -41,16 +41,36 @@ export function Step6Review() {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleCreate = async () => {
     setCreating(true);
-    // Simulate creation (실제는 Firestore에 저장 + 셋업 트리거)
-    await new Promise((r) => setTimeout(r, 2000));
-    setDone(true);
-    setTimeout(() => {
-      reset();
-      router.push(`/sites/${data.siteId}`);
-    }, 1500);
+    setError(null);
+    try {
+      const res = await fetch("/api/sites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        setError(json.error ?? "사이트 생성에 실패했습니다");
+        setCreating(false);
+        return;
+      }
+
+      setDone(true);
+      setTimeout(() => {
+        reset();
+        router.push(`/sites/${json.siteId}`);
+        router.refresh();
+      }, 1500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "네트워크 오류가 발생했습니다");
+      setCreating(false);
+    }
   };
 
   if (done) {
@@ -74,38 +94,29 @@ export function Step6Review() {
         <CardDescription>설정을 확인하고 사이트를 생성합니다</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Summary */}
+        {error && (
+          <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+            <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-red-600">{error}</p>
+          </div>
+        )}
+
+        {/* 요약 */}
         <div className="rounded-xl border divide-y">
-          <div className="flex justify-between items-center px-4 py-3">
-            <span className="text-sm text-muted-foreground">사이트 이름</span>
-            <span className="text-sm font-medium">{data.name}</span>
-          </div>
-          <div className="flex justify-between items-center px-4 py-3">
-            <span className="text-sm text-muted-foreground">사이트 ID</span>
-            <span className="text-sm font-mono">{data.siteId}</span>
-          </div>
-          <div className="flex justify-between items-center px-4 py-3">
-            <span className="text-sm text-muted-foreground">토픽 / 언어</span>
-            <span className="text-sm font-medium">{data.topic} / {data.language.toUpperCase()}</span>
-          </div>
-          <div className="flex justify-between items-center px-4 py-3">
-            <span className="text-sm text-muted-foreground">호스팅</span>
-            <span className="text-sm font-medium">{HOSTING_LABEL[data.hostingType] || data.hostingType}</span>
-          </div>
-          {data.domain && (
-            <div className="flex justify-between items-center px-4 py-3">
-              <span className="text-sm text-muted-foreground">도메인</span>
-              <span className="text-sm font-mono">{data.domain}</span>
+          {[
+            { label: "사이트 이름", value: data.name },
+            { label: "사이트 ID", value: data.siteId, mono: true },
+            { label: "토픽 / 언어", value: `${data.topic} / ${data.language.toUpperCase()}` },
+            { label: "호스팅", value: HOSTING_LABEL[data.hostingType] || data.hostingType },
+            ...(data.domain ? [{ label: "도메인", value: data.domain, mono: true }] : []),
+            { label: "페르소나", value: PERSONA_LABEL[data.persona] || data.persona },
+            { label: "톤", value: TONE_LABEL[data.tone] || data.tone },
+          ].map((row) => (
+            <div key={row.label} className="flex justify-between items-center px-4 py-3">
+              <span className="text-sm text-muted-foreground">{row.label}</span>
+              <span className={`text-sm font-medium ${row.mono ? "font-mono" : ""}`}>{row.value}</span>
             </div>
-          )}
-          <div className="flex justify-between items-center px-4 py-3">
-            <span className="text-sm text-muted-foreground">페르소나</span>
-            <span className="text-sm font-medium">{PERSONA_LABEL[data.persona] || data.persona}</span>
-          </div>
-          <div className="flex justify-between items-center px-4 py-3">
-            <span className="text-sm text-muted-foreground">톤</span>
-            <span className="text-sm">{TONE_LABEL[data.tone] || data.tone}</span>
-          </div>
+          ))}
           <div className="flex justify-between items-start px-4 py-3">
             <span className="text-sm text-muted-foreground">섹션</span>
             <div className="flex flex-wrap gap-1.5 justify-end">
@@ -128,7 +139,7 @@ export function Step6Review() {
           </div>
         </div>
 
-        {/* Auto-setup info */}
+        {/* 자동 처리 안내 */}
         <div className="rounded-lg bg-purple-50 border border-purple-200 p-3">
           <div className="flex items-center gap-2 mb-2">
             <Zap className="h-4 w-4 text-purple-600" />
@@ -137,11 +148,9 @@ export function Step6Review() {
           <ul className="text-xs text-purple-600 space-y-0.5 list-disc list-inside">
             <li>Firestore child_sites 문서 생성</li>
             {data.hostingType === "nextjs" && <li>Vercel 프로젝트 생성 + 환경변수 주입</li>}
-            <li>페르소나 5종 자동 생성</li>
-            {data.phase === "authority" && <li>권위 아웃라인 (28~42편 목차) AI 생성</li>}
-            <li>sitemap.xml, robots.txt, llms.txt 초기화</li>
-            <li>About / Privacy / Contact 페이지 자동 생성</li>
-            {data.sourceUrls.length === 0 && <li>토픽 기반 출처 12개 자동 제안</li>}
+            <li>섹션 초기화</li>
+            {data.phase === "authority" && <li>권위 아웃라인 (28~42편 목차) AI 생성 준비</li>}
+            {data.sourceUrls.length === 0 && <li>토픽 기반 출처 자동 제안</li>}
           </ul>
         </div>
 

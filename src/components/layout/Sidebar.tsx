@@ -11,6 +11,8 @@ import {
   Rss,
   Users,
   BarChart3,
+  TrendingUp,
+  Coins,
   Bell,
   Settings,
   DollarSign,
@@ -19,6 +21,8 @@ import {
   Zap,
   ChevronRight,
   Sparkles,
+  LogOut,
+  Search as SearchIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -51,6 +55,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "발행 큐", href: "/queue", icon: FileStack },
       { label: "아웃라인", href: "/outline", icon: BookOpen },
       { label: "발행된 글", href: "/posts", icon: PenLine },
+      { label: "글 검색", href: "/search", icon: SearchIcon },
       { label: "출처 관리", href: "/sources", icon: Rss },
     ],
   },
@@ -67,8 +72,8 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: "시스템",
     items: [
-      { label: "분석", href: "/analytics", icon: BarChart3 },
-      { label: "비용", href: "/costs", icon: DollarSign },
+      { label: "분석", href: "/analytics", icon: TrendingUp },
+      { label: "비용", href: "/costs", icon: Coins },
       { label: "실패 작업", href: "/failed-jobs", icon: AlertTriangle },
       { label: "전역 설정", href: "/settings", icon: Settings },
     ],
@@ -165,6 +170,16 @@ export function Sidebar() {
                 운영자
               </p>
             </div>
+            <button
+              onClick={async () => {
+                await fetch("/api/auth/session", { method: "DELETE" });
+                window.location.href = "/login";
+              }}
+              className="ml-auto text-[hsl(var(--sidebar-foreground))]/40 hover:text-white transition-colors"
+              title="로그아웃"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       </aside>
