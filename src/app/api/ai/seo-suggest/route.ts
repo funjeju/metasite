@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession } from "@/lib/auth";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const client = new Anthropic();
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? "");
 
 const LANG_LABEL: Record<string, string> = {
   ko: "한국어 (Korean)",
@@ -36,7 +36,10 @@ Provide the following in JSON format (no markdown, raw JSON only):
   "keywords": ["10-15 keywords: mix of brand terms, short-tail (1-2 words), long-tail (3-5 words), all in ${lang}"],
   "sectionSuggestions": [
     {"name": "section name in ${lang}", "slug": "english-slug"},
-    ...4 more sections relevant to the topic
+    {"name": "section name in ${lang}", "slug": "english-slug"},
+    {"name": "section name in ${lang}", "slug": "english-slug"},
+    {"name": "section name in ${lang}", "slug": "english-slug"},
+    {"name": "section name in ${lang}", "slug": "english-slug"}
   ]
 }
 
@@ -47,13 +50,9 @@ Rules:
 - metaTitle and description must be compelling and click-worthy`;
 
   try {
-    const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    const raw = (message.content[0] as { type: string; text: string }).text.trim();
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const result = await model.generateContent(prompt);
+    const raw = result.response.text().trim();
     const json = raw.startsWith("{") ? raw : raw.replace(/^```json?\n?/, "").replace(/\n?```$/, "");
     const data = JSON.parse(json);
 

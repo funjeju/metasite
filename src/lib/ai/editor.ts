@@ -1,9 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { genAI } from "./gemini-client";
 import { marked } from "marked";
 import { calcCost } from "./cost";
 import type { VerifiedArticle, EditedArticle, SiteContext, AiUsage } from "./types";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const BASE_SYSTEM = `You are the Editor agent. Your job is to apply SEO optimizations and mark internal link opportunities.
 Rules:
@@ -20,6 +18,7 @@ export async function editArticle(
   const SYSTEM = ctx.promptOverrides?.editor
     ? `${BASE_SYSTEM}\n\nSITE-SPECIFIC INSTRUCTIONS:\n${ctx.promptOverrides.editor}`
     : BASE_SYSTEM;
+
   const prompt = `Optimize this article for SEO.
 
 Title: ${article.title}
@@ -35,22 +34,16 @@ Respond ONLY with JSON:
   "adSlots": [2, 6, 10]
 }`;
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 512,
-    system: SYSTEM,
-    messages: [{ role: "user", content: prompt }],
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.5-flash",
+    systemInstruction: SYSTEM,
   });
 
-  const text = response.content.find((b) => b.type === "text")?.text ?? "{}";
+  const result = await model.generateContent(prompt);
+  const text = result.response.text();
   const jsonStr = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 
-  let edits: {
-    metaTitle: string;
-    metaDescription: string;
-    internalLinkMarkers: string[];
-    adSlots: number[];
-  };
+  let edits: { metaTitle: string; metaDescription: string; internalLinkMarkers: string[]; adSlots: number[] };
   try {
     edits = JSON.parse(jsonStr);
   } catch {
@@ -64,9 +57,10 @@ Respond ONLY with JSON:
 
   const bodyHtml = await marked(article.body);
 
-  const _usage = calcCost("claude-sonnet-4-6", {
-    input_tokens: response.usage.input_tokens,
-    output_tokens: response.usage.output_tokens,
+  const meta = result.response.usageMetadata;
+  const _usage = calcCost("gemini-2.5-flash", {
+    input_tokens: meta?.promptTokenCount ?? 0,
+    output_tokens: meta?.candidatesTokenCount ?? 0,
   });
 
   return {

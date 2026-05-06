@@ -6,9 +6,7 @@ import { runPipeline } from "@/lib/ai/pipeline";
 import { getPublisher } from "@/lib/publishers/factory";
 import { FieldValue } from "firebase-admin/firestore";
 import { nanoid } from "nanoid";
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+import { genAI } from "@/lib/ai/gemini-client";
 
 // POST: run Phase 2 pipeline for a site
 // Body: { siteId }
@@ -62,18 +60,12 @@ export async function POST(req: NextRequest) {
   const top5 = relevant.slice(0, 5);
   const summaries: string[] = [];
 
+  const summaryModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   for (const item of top5) {
-    const res = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 300,
-      messages: [
-        {
-          role: "user",
-          content: `Summarise this article in 2-3 sentences for use as a source:\nTitle: ${item.title}\nContent: ${item.contentSnippet}`,
-        },
-      ],
-    });
-    const text = res.content.find((b) => b.type === "text")?.text ?? "";
+    const res = await summaryModel.generateContent(
+      `Summarise this article in 2-3 sentences for use as a source:\nTitle: ${item.title}\nContent: ${item.contentSnippet}`
+    );
+    const text = res.response.text();
     summaries.push(`${item.title}: ${text}`);
   }
 

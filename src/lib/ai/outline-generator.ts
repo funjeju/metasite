@@ -1,7 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { genAI } from "./gemini-client";
 import type { OutlineItem, SiteContext } from "./types";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const BASE_SYSTEM = `You are an SEO content strategist. Your job is to create comprehensive authority content outlines.
 Rules:
@@ -15,6 +13,7 @@ export async function generateOutline(ctx: SiteContext): Promise<OutlineItem[]> 
   const SYSTEM = ctx.promptOverrides?.outlineGenerator
     ? `${BASE_SYSTEM}\n\nSITE-SPECIFIC INSTRUCTIONS:\n${ctx.promptOverrides.outlineGenerator}`
     : BASE_SYSTEM;
+
   const lang = ctx.language === "ko" ? "Korean" : "English";
 
   const prompt = `Generate a 28-42 article outline for an authority site.
@@ -33,20 +32,13 @@ Respond ONLY with a JSON array where each item matches:
   "targetKeyword": "string"
 }`;
 
-  const response = await client.messages.create({
-    model: "claude-opus-4-7-20251101",
-    max_tokens: 4096,
-    system: [
-      {
-        type: "text",
-        text: SYSTEM,
-        cache_control: { type: "ephemeral" },
-      },
-    ],
-    messages: [{ role: "user", content: prompt }],
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.5-flash",
+    systemInstruction: SYSTEM,
   });
 
-  const text = response.content.find((b) => b.type === "text")?.text ?? "[]";
+  const result = await model.generateContent(prompt);
+  const text = result.response.text();
   const jsonStr = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 
   return JSON.parse(jsonStr) as OutlineItem[];

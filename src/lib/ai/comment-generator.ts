@@ -1,7 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { genAI } from "./gemini-client";
 import type { SiteContext } from "./types";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export interface GeneratedComment {
   personaName: string;
@@ -50,20 +48,14 @@ export async function generateComments(
 ): Promise<GeneratedComment[]> {
   const selectedPersonas = COMMENT_PERSONAS.slice(0, count);
   const articleSummary = `Title: ${article.title}\nExcerpt: ${article.excerpt}\nContent snippet: ${article.body.slice(0, 600)}`;
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const comments = await Promise.all(
     selectedPersonas.map(async (persona) => {
-      const res = await client.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 200,
-        messages: [
-          {
-            role: "user",
-            content: `${persona.prompt(ctx.language)}\n\nArticle:\n${articleSummary}\n\nWrite your comment:`,
-          },
-        ],
-      });
-      const content = res.content.find((b) => b.type === "text")?.text?.trim() ?? "";
+      const res = await model.generateContent(
+        `${persona.prompt(ctx.language)}\n\nArticle:\n${articleSummary}\n\nWrite your comment:`
+      );
+      const content = res.response.text().trim();
       return {
         personaName: persona.name,
         personaType: persona.type,

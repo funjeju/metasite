@@ -1,8 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { genAI } from "./gemini-client";
 import { calcCost } from "./cost";
 import type { GeneratedArticle, SiteContext, AiUsage } from "./types";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 function buildSystemPrompt(ctx: SiteContext): string {
   const PERSONA_DESC: Record<string, string> = {
@@ -61,28 +59,21 @@ export async function writeArticle(
     ? `Write a comprehensive article.\nTitle: ${title}\nAngle: ${angle}\nTarget keyword: ${targetKeyword}\n\nSource summaries to incorporate:\n${summaries.map((s, i) => `[${i + 1}] ${s}`).join("\n\n")}\n\nRespond ONLY with JSON matching this schema:\n${ARTICLE_SCHEMA}`
     : `Write a comprehensive authority article.\nTitle: ${title}\nAngle: ${angle}\nTarget keyword: ${targetKeyword}\n\nRespond ONLY with JSON matching this schema:\n${ARTICLE_SCHEMA}`;
 
-  const response = await client.messages.create({
-    model: "claude-opus-4-7-20251101",
-    max_tokens: 4096,
-    system: [
-      {
-        type: "text",
-        text: systemPrompt,
-        cache_control: { type: "ephemeral" },
-      },
-    ],
-    messages: [{ role: "user", content: userContent }],
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.5-flash",
+    systemInstruction: systemPrompt,
   });
 
-  const text = response.content.find((b) => b.type === "text")?.text ?? "";
+  const result = await model.generateContent(userContent);
+  const text = result.response.text();
   const jsonStr = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
   const parsed = JSON.parse(jsonStr) as GeneratedArticle;
   parsed.wordCount = parsed.body.split(/\s+/).filter(Boolean).length;
 
-  const _usage = calcCost("claude-opus-4-7-20251101", {
-    input_tokens: response.usage.input_tokens,
-    output_tokens: response.usage.output_tokens,
-    cache_read_input_tokens: (response.usage as unknown as Record<string, number>).cache_read_input_tokens,
+  const meta = result.response.usageMetadata;
+  const _usage = calcCost("gemini-2.5-flash", {
+    input_tokens: meta?.promptTokenCount ?? 0,
+    output_tokens: meta?.candidatesTokenCount ?? 0,
   });
 
   return { ...parsed, _usage };

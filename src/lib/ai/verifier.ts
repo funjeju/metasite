@@ -1,8 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { genAI } from "./gemini-client";
 import { calcCost } from "./cost";
 import type { GeneratedArticle, VerifiedArticle, SiteContext, AiUsage } from "./types";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const BASE_SYSTEM = `You are the Verifier agent. Your job is to fact-check articles and remove fabricated citations.
 Rules:
@@ -18,6 +16,7 @@ export async function verifyArticle(
   const SYSTEM = ctx?.promptOverrides?.verifier
     ? `${BASE_SYSTEM}\n\nSITE-SPECIFIC INSTRUCTIONS:\n${ctx.promptOverrides.verifier}`
     : BASE_SYSTEM;
+
   const prompt = `Verify this article and return the corrected data.
 
 Title: ${article.title}
@@ -31,33 +30,33 @@ Respond ONLY with JSON:
   "factCheckNotes": "brief summary of any factual concerns found"
 }`;
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    system: SYSTEM,
-    messages: [{ role: "user", content: prompt }],
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.5-flash",
+    systemInstruction: SYSTEM,
   });
 
-  const text = response.content.find((b) => b.type === "text")?.text ?? "{}";
+  const result = await model.generateContent(prompt);
+  const text = result.response.text();
   const jsonStr = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 
-  let result: { keepCitations: string[]; removedCitations: string[]; factCheckNotes: string };
+  let parsed: { keepCitations: string[]; removedCitations: string[]; factCheckNotes: string };
   try {
-    result = JSON.parse(jsonStr);
+    parsed = JSON.parse(jsonStr);
   } catch {
-    result = { keepCitations: article.citations, removedCitations: [], factCheckNotes: "" };
+    parsed = { keepCitations: article.citations, removedCitations: [], factCheckNotes: "" };
   }
 
-  const _usage = calcCost("claude-sonnet-4-6", {
-    input_tokens: response.usage.input_tokens,
-    output_tokens: response.usage.output_tokens,
+  const meta = result.response.usageMetadata;
+  const _usage = calcCost("gemini-2.5-flash", {
+    input_tokens: meta?.promptTokenCount ?? 0,
+    output_tokens: meta?.candidatesTokenCount ?? 0,
   });
 
   return {
     ...article,
-    citations: result.keepCitations ?? article.citations,
-    removedCitations: result.removedCitations ?? [],
-    factCheckNotes: result.factCheckNotes ?? "",
+    citations: parsed.keepCitations ?? article.citations,
+    removedCitations: parsed.removedCitations ?? [],
+    factCheckNotes: parsed.factCheckNotes ?? "",
     _usage,
   };
 }
