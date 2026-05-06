@@ -10,14 +10,27 @@ function getAdminApp(): App {
     credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      // .env.local에서 \n이 이스케이프된 채로 들어오므로 실제 개행으로 변환
       privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
     }),
     storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   });
 }
 
-export const adminApp = getAdminApp();
-export const adminDb = getFirestore(adminApp);
-export const adminAuth = getAuth(adminApp);
-export const adminStorage = getStorage(adminApp);
+// Lazy proxy that defers Firebase initialization to first use at runtime,
+// preventing build-time failures when env vars are absent.
+function lazy<T extends object>(factory: () => T): T {
+  return new Proxy({} as T, {
+    get(_target, prop) {
+      const instance = factory();
+      const val = (instance as Record<string | symbol, unknown>)[prop];
+      return typeof val === "function"
+        ? (val as (...args: unknown[]) => unknown).bind(instance)
+        : val;
+    },
+  });
+}
+
+export const adminApp = lazy(() => getAdminApp());
+export const adminDb = lazy(() => getFirestore(getAdminApp()));
+export const adminAuth = lazy(() => getAuth(getAdminApp()));
+export const adminStorage = lazy(() => getStorage(getAdminApp()));
