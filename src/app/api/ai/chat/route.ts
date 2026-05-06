@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { verifySession } from "@/lib/auth";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const dynamic = "force-dynamic";
 
-const client = new Anthropic();
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? "");
 
 const SYSTEM_PROMPT = `You are the built-in AI assistant for META-SITE — an AI-powered multi-site content management and auto-publishing admin dashboard. You know every detail of the system.
 
@@ -223,33 +223,40 @@ export async function POST(req: NextRequest) {
 
   if (!messages?.length) return new Response("messages required", { status: 400 });
 
-  // Anthropic requires conversation to start with a user message
+  // Gemini uses "model" instead of "assistant", and needs history + last user message separated
   const firstUserIdx = messages.findIndex((m) => m.role === "user");
-  const apiMessages = firstUserIdx >= 0 ? messages.slice(firstUserIdx) : messages;
+  const trimmed = firstUserIdx >= 0 ? messages.slice(firstUserIdx) : messages;
+
+  const lastUserMsg = trimmed.filter((m) => m.role === "user").at(-1);
+  if (!lastUserMsg) return new Response("no user message", { status: 400 });
+
+  // History = everything before the last user message
+  const lastUserMsgIdx = trimmed.lastIndexOf(lastUserMsg);
+  const history = trimmed.slice(0, lastUserMsgIdx).map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
 
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        const anthropicStream = client.messages.stream({
-          model: "claude-sonnet-4-6",
-          max_tokens: 2048,
-          system: SYSTEM_PROMPT,
-          messages: apiMessages,
+        const model = genAI.getGenerativeModel({
+          model: "gemini-2.5-flash",
+          systemInstruction: SYSTEM_PROMPT,
         });
 
-        for await (const chunk of anthropicStream) {
-          if (
-            chunk.type === "content_block_delta" &&
-            chunk.delta.type === "text_delta"
-          ) {
-            controller.enqueue(encoder.encode(chunk.delta.text));
-          }
+        const chat = model.startChat({ history });
+        const result = await chat.sendMessageStream(lastUserMsg.content);
+
+        for await (const chunk of result.stream) {
+          const text = chunk.text();
+          if (text) controller.enqueue(encoder.encode(text));
         }
       } catch (err) {
         console.error("chat stream error:", err);
-        controller.enqueue(encoder.encode("\n\n오류가 발생했습니다. 다시 시도해 주세요."));
+        controller.enqueue(encoder.encode("오류가 발생했습니다. 다시 시도해 주세요."));
       } finally {
         controller.close();
       }

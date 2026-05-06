@@ -276,7 +276,7 @@ export function SiteAssistant() {
             </button>
           </div>
           <p className="text-[10px] text-muted-foreground/50 mt-1.5 text-center">
-            Claude Sonnet · META-SITE 전체 시스템 지식 탑재
+            Gemini 2.5 Flash · META-SITE 전체 시스템 지식 탑재
           </p>
         </div>
       </div>
