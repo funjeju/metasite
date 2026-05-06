@@ -73,7 +73,7 @@ export function SiteAssistant() {
         signal: abortRef.current.signal,
       });
 
-      if (!res.ok || !res.body) throw new Error("응답 오류");
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -97,11 +97,12 @@ export function SiteAssistant() {
       });
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
+      const msg = (err as Error).message ?? "unknown";
       setMessages((prev) => {
         const updated = [...prev];
         updated[updated.length - 1] = {
           role: "assistant",
-          content: "오류가 발생했습니다. 다시 시도해 주세요.",
+          content: `오류가 발생했습니다 (${msg}). Vercel 환경변수에 ANTHROPIC_API_KEY가 설정되어 있는지 확인해 주세요.`,
           streaming: false,
         };
         return updated;

@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { verifySession } from "@/lib/auth";
 import Anthropic from "@anthropic-ai/sdk";
 
+export const dynamic = "force-dynamic";
+
 const client = new Anthropic();
 
 const SYSTEM_PROMPT = `You are the built-in AI assistant for META-SITE — an AI-powered multi-site content management and auto-publishing admin dashboard. You know every detail of the system.
@@ -221,6 +223,10 @@ export async function POST(req: NextRequest) {
 
   if (!messages?.length) return new Response("messages required", { status: 400 });
 
+  // Anthropic requires conversation to start with a user message
+  const firstUserIdx = messages.findIndex((m) => m.role === "user");
+  const apiMessages = firstUserIdx >= 0 ? messages.slice(firstUserIdx) : messages;
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -230,7 +236,7 @@ export async function POST(req: NextRequest) {
           model: "claude-sonnet-4-6",
           max_tokens: 2048,
           system: SYSTEM_PROMPT,
-          messages,
+          messages: apiMessages,
         });
 
         for await (const chunk of anthropicStream) {
