@@ -1,5 +1,6 @@
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
+import { SiteAssistant } from "@/components/chat/SiteAssistant";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -17,6 +18,7 @@ export function AppShell({ children, title, description }: AppShellProps) {
           {children}
         </main>
       </div>
+      <SiteAssistant />
     </div>
   );
 }
