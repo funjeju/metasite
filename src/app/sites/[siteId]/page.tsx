@@ -40,6 +40,7 @@ export default async function SiteDetailPage({ params }: Props) {
 
   const phase = (site.currentPhase as string) ?? "authority";
   const phaseLabel = phase === "authority" ? "Phase 1: 권위 구축" : "Phase 2: 지속 발행";
+  const phase1Config = (site.phase1Config as { minArticles?: number; minDays?: number; transitionedAt?: string | null } | undefined) ?? {};
   const health = ((site.healthStatus as { overall?: string })?.overall) ?? "healthy";
   const healthColor = health === "healthy" ? "text-green-500" : health === "warning" ? "text-amber-500" : "text-red-500";
   const stats = (site.stats as { totalPosts?: number; publishedPosts?: number; draftPosts?: number; failedPosts?: number; weeklyTrafficEstimate?: number }) ?? {};
@@ -110,6 +111,52 @@ export default async function SiteDetailPage({ params }: Props) {
             </Card>
           ))}
         </div>
+
+        {/* Phase 1 progress */}
+        {phase === "authority" && (() => {
+          const minArticles = phase1Config.minArticles ?? 20;
+          const minDays = phase1Config.minDays ?? 7;
+          const published = stats.publishedPosts ?? 0;
+          const createdAt = (site.createdAt as { _seconds?: number } | null)?._seconds;
+          const daysElapsed = createdAt ? Math.floor((Date.now() / 1000 - createdAt) / 86400) : 0;
+          const articlesPct = Math.min(100, Math.round((published / minArticles) * 100));
+          const daysPct = Math.min(100, Math.round((daysElapsed / minDays) * 100));
+          return (
+            <Card className="border-purple-200 bg-purple-50/50">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm text-purple-800">Phase 1 진행 상황</CardTitle>
+                  <Badge variant="authority" className="text-[10px]">Phase 2 전환 대기</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">발행 글</span>
+                    <span className="font-medium text-purple-700">{published} / {minArticles}개</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-purple-100 overflow-hidden">
+                    <div className="h-full rounded-full bg-purple-500 transition-all" style={{ width: `${articlesPct}%` }} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">경과 일수</span>
+                    <span className="font-medium text-purple-700">{daysElapsed} / {minDays}일</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-purple-100 overflow-hidden">
+                    <div className="h-full rounded-full bg-purple-400 transition-all" style={{ width: `${daysPct}%` }} />
+                  </div>
+                </div>
+                {articlesPct >= 100 && daysPct >= 100 ? (
+                  <p className="text-xs text-green-700 font-medium">✓ 조건 충족 — 다음 크론 실행 시 Phase 2로 자동 전환됩니다</p>
+                ) : (
+                  <p className="text-xs text-purple-600">두 조건이 모두 충족되면 Phase 2로 자동 전환됩니다</p>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* 섹션 */}

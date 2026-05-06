@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
       hostingType, domain, vercelProjectId,
       tistoryBlogName, tistoryBlogUrl,
       bloggerBlogId, bloggerBlogUrl,
-      persona, tone, sections, phase, sourceUrls,
+      persona, tone, sections, sourceUrls,
+      phase1MinArticles, phase1MinDays,
     } = body;
 
     if (!siteId || !name || !topic || !hostingType) {
@@ -69,7 +70,12 @@ export async function POST(req: NextRequest) {
       tone: tone ?? "friendly",
       hostingType,
       hostingConfig,
-      currentPhase: phase ?? "authority",
+      currentPhase: "authority",
+      phase1Config: {
+        minArticles: phase1MinArticles ?? 20,
+        minDays: phase1MinDays ?? 7,
+        transitionedAt: null,
+      },
       sections: (sections ?? []).map((s: { name: string; slug: string; publishFrequency: string; enabled: boolean }, idx: number) => ({
         sectionId: `${siteId}-sec-${idx}`,
         name: s.name,

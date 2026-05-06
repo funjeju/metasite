@@ -78,6 +78,39 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Phase 1 → Phase 2 auto-transition check
+  const transitioned: string[] = [];
+  for (const doc of sitesSnap.docs) {
+    const site = doc.data();
+    if ((site.currentPhase ?? "authority") !== "authority") continue;
+    if (site.phase1Config?.transitionedAt) continue;
+
+    const minArticles: number = site.phase1Config?.minArticles ?? 20;
+    const minDays: number = site.phase1Config?.minDays ?? 7;
+    const publishedPosts: number = site.stats?.publishedPosts ?? 0;
+
+    const createdMs = site.createdAt?.toMillis?.() ?? 0;
+    const daysElapsed = createdMs > 0 ? (now - createdMs) / (24 * 60 * 60 * 1000) : 0;
+
+    if (publishedPosts >= minArticles && daysElapsed >= minDays) {
+      await doc.ref.update({
+        currentPhase: "ongoing",
+        "phase1Config.transitionedAt": new Date().toISOString(),
+      });
+      // Create a transition alert
+      await adminDb.collection("alerts").add({
+        siteId: doc.id,
+        type: "phase_transition",
+        title: "Phase 2 자동 전환 완료",
+        message: `${publishedPosts}개 발행 + ${Math.floor(daysElapsed)}일 경과로 Phase 2(지속 발행)로 자동 전환되었습니다.`,
+        severity: "info",
+        read: false,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      transitioned.push(doc.id);
+    }
+  }
+
   // Run health check every 6 hours (roughly)
   const hour = new Date().getUTCHours();
   if (hour % 6 === 0) {
@@ -89,7 +122,7 @@ export async function GET(req: NextRequest) {
     }).catch(() => {});
   }
 
-  return NextResponse.json({ triggered, skipped, ts: new Date().toISOString() });
+  return NextResponse.json({ triggered, skipped, transitioned, ts: new Date().toISOString() });
 }
 
 function frequencyToMs(freq: string): number {

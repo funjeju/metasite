@@ -129,9 +129,11 @@ export function Step6Review() {
           </div>
           <div className="flex justify-between items-center px-4 py-3">
             <span className="text-sm text-muted-foreground">시작 단계</span>
-            <Badge variant={data.phase === "authority" ? "authority" : "ongoing"} className="text-xs">
-              {data.phase === "authority" ? "Phase 1: 권위 구축" : "Phase 2: 즉시 발행"}
-            </Badge>
+            <Badge variant="authority" className="text-xs">Phase 1: 권위 구축 → Phase 2 자동 전환</Badge>
+          </div>
+          <div className="flex justify-between items-center px-4 py-3">
+            <span className="text-sm text-muted-foreground">Phase 2 전환 조건</span>
+            <span className="text-sm">{data.phase1MinArticles}개 발행 + {data.phase1MinDays}일 경과</span>
           </div>
           <div className="flex justify-between items-center px-4 py-3">
             <span className="text-sm text-muted-foreground">출처</span>
@@ -149,7 +151,8 @@ export function Step6Review() {
             <li>Firestore child_sites 문서 생성</li>
             {data.hostingType === "nextjs" && <li>Vercel 프로젝트 생성 + 환경변수 주입</li>}
             <li>섹션 초기화</li>
-            {data.phase === "authority" && <li>권위 아웃라인 (28~42편 목차) AI 생성 준비</li>}
+            <li>권위 아웃라인 (28~42편 목차) AI 생성 준비</li>
+            <li>{data.phase1MinArticles}개 발행 + {data.phase1MinDays}일 경과 시 Phase 2 자동 전환</li>
             {data.sourceUrls.length === 0 && <li>토픽 기반 출처 자동 제안</li>}
           </ul>
         </div>

@@ -45,6 +45,7 @@ export interface SiteContext {
   tone: string;
   language: string;
   canonicalDomain: string;
+  siteKeywords?: string[];
   promptOverrides?: {
     writer?: string;
     verifier?: string;

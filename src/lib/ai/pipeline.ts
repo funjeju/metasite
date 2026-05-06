@@ -46,7 +46,7 @@ export async function runPipeline(input: PipelineInput): Promise<EditedArticle> 
   }
 
   const verified = await verifyArticle(draft, input.ctx);
-  const edited = await editArticle(verified, input.ctx);
+  const edited = await editArticle(verified, input.ctx, input.targetKeyword);
 
   // Accumulate AI costs from all three steps
   const aiUsage: AiUsage = sumUsage([draft._usage, verified._usage, edited._usage]);

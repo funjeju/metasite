@@ -29,8 +29,9 @@ export interface SiteCreationData {
   tone: string;
   sections: { name: string; slug: string; publishFrequency: string; enabled: boolean }[];
 
-  // Step 5: Sources + Phase
-  phase: "authority" | "ongoing";
+  // Step 5: Sources + Phase 1 config
+  phase1MinArticles: number;
+  phase1MinDays: number;
   sourceUrls: { url: string; type: string; name: string }[];
 
   // Step 6: Review (no additional fields)
@@ -66,7 +67,8 @@ const DEFAULT_DATA: SiteCreationData = {
     { name: "분석", slug: "analysis", publishFrequency: "thrice_weekly", enabled: true },
     { name: "가이드", slug: "guide", publishFrequency: "weekly", enabled: true },
   ],
-  phase: "authority",
+  phase1MinArticles: 20,
+  phase1MinDays: 7,
   sourceUrls: [],
 };
 
